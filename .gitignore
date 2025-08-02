@@ -33,6 +33,7 @@ pnpm-debug.log*
 # Build outputs
 dist/
 build/
+.next/
 
 # Testing
 coverage/
@@ -49,3 +50,7 @@ Thumbs.db
 # MCP specific
 mcp-cache/
 .mcp/.next/
+
+# docs (temporary test files)
+/docs/chatbot-tool-usage.md
+/docs/generative-user-interfaces.md

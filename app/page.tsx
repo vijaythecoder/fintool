@@ -1,7 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai';
 import { useState } from 'react';
 
 export default function ChatPage() {
@@ -11,6 +11,11 @@ export default function ChatPage() {
     transport: new DefaultChatTransport({
       api: '/api/chat',
     }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    onFinish: (message) => {
+      console.log('Message finished:', message);
+      console.log('Last message parts:', messages[messages.length - 1]?.parts);
+    },
   });
 
   // Log errors to console for debugging
@@ -139,7 +144,7 @@ export default function ChatPage() {
                                     );
                                   } catch {
                                     // If not JSON, display content as-is
-                                    return <div>{String(output.content)}</div>;
+                                    return <div className="whitespace-pre-wrap">{String(output.content)}</div>;
                                   }
                                 }
                                 

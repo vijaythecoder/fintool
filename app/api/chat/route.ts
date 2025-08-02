@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, convertToModelMessages, UIMessage } from 'ai';
+import { streamText, convertToModelMessages, UIMessage, stepCountIs } from 'ai';
 import { getBigQueryTools } from '@/lib/mcp-client';
 
 export const maxDuration = 30;
@@ -20,9 +20,23 @@ export async function POST(request: Request) {
     const result = streamText({
       model: openai('gpt-4-turbo'),
       toolCallStreaming: true,
-      system: `You are a financial expert and help the user with the BigQuery data when asked.`,
+      system: `You are a financial expert and help the user with BigQuery data when asked. 
+      
+      IMPORTANT: Before querying any table, ALWAYS first check its schema to understand what columns are available:
+      - To see columns in a table: SELECT column_name, data_type FROM \`project_id.dataset_name.INFORMATION_SCHEMA.COLUMNS\` WHERE table_name = 'table_name'
+      
+      When users ask for data from a specific table:
+      1. First run a schema query to see what columns exist
+      2. Then query the actual data using only the columns that exist
+      3. Use LIMIT 10 to get a reasonable number of records
+      
+      For discovery queries:
+      - To list all datasets: SELECT schema_name FROM INFORMATION_SCHEMA.SCHEMATA
+      - To list tables in a dataset: SELECT table_name FROM \`dataset_name.INFORMATION_SCHEMA.TABLES\`
+      
+      When you receive query results from tools, provide a clear and helpful explanation of the data in natural language, summarizing key information from the results.`,
       messages: convertToModelMessages(messages),
-      maxSteps: 5,
+      stopWhen: stepCountIs(5), // Use stopWhen for multi-step processing
       tools: tools, // Use MCP tools directly
       onFinish: async () => {
         // Close the MCP connection when done
@@ -31,7 +45,12 @@ export async function POST(request: Request) {
       },
     });
 
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      onError: (error) => {
+        console.error('Stream error:', error);
+        return error instanceof Error ? error.message : String(error);
+      },
+    });
   } catch (error) {
     console.error('Chat API error:', error);
     return new Response(
