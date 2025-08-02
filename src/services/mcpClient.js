@@ -1,4 +1,5 @@
 import { experimental_createMCPClient as createMCPClient } from 'ai';
+import { Experimental_StdioMCPTransport as StdioMCPTransport } from 'ai/mcp-stdio';
 import { config } from 'dotenv';
 import { logger } from '../utils/logger.js';
 
@@ -17,8 +18,7 @@ export async function getBigQueryTools() {
     logger.info('Connecting to BigQuery MCP server...');
     
     const client = await createMCPClient({
-      transport: {
-        type: 'stdio',
+      transport: new StdioMCPTransport({
         command: 'npx',
         args: [
           '-y',
@@ -27,15 +27,21 @@ export async function getBigQueryTools() {
           '--location', process.env.GCP_LOCATION || 'us-central1',
           '--key-file', process.env.GCP_KEY_FILE_PATH
         ]
-      }
+      })
     });
 
-    const tools = await client.tools();
+    const toolsResponse = await client.tools();
+    
+    // Convert tools response to the expected format
+    const tools = toolsResponse && typeof toolsResponse === 'object' && !Array.isArray(toolsResponse) 
+      ? toolsResponse 
+      : {};
     
     mcpClientInstance = client;
     mcpToolsCache = tools;
     
-    logger.info(`Successfully connected to BigQuery MCP. Available tools: ${tools.map(t => t.name).join(', ')}`);
+    const toolNames = Object.keys(tools);
+    logger.info(`Successfully connected to BigQuery MCP. Available tools: ${toolNames.join(', ')}`);
     
     return { client, tools };
   } catch (error) {
@@ -63,9 +69,15 @@ export async function getRemoteBigQueryTools() {
       }
     });
 
-    const tools = await client.tools();
+    const toolsResponse = await client.tools();
     
-    logger.info(`Connected to remote MCP. Available tools: ${tools.map(t => t.name).join(', ')}`);
+    // Convert tools response to the expected format
+    const tools = toolsResponse && typeof toolsResponse === 'object' && !Array.isArray(toolsResponse) 
+      ? toolsResponse 
+      : {};
+    
+    const toolNames = Object.keys(tools);
+    logger.info(`Connected to remote MCP. Available tools: ${toolNames.join(', ')}`);
     
     return { client, tools };
   } catch (error) {
@@ -88,7 +100,8 @@ export async function closeMCPConnection() {
 }
 
 export function findToolByName(tools, name) {
-  return tools.find(tool => tool.name === name);
+  // Tools is now an object keyed by tool name
+  return tools[name];
 }
 
 export async function executeQuery(client, query) {
