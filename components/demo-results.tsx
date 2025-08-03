@@ -1,6 +1,7 @@
 'use client';
 
 import { BigQueryResultDisplay } from './bigquery-result-display';
+import { ToolExecutionDisplay } from './tool-execution-display';
 
 // Demo data to showcase different BigQuery result types
 export const demoResults = {
@@ -71,6 +72,28 @@ export const demoResults = {
   }
 };
 
+// Demo tool execution data
+export const demoToolExecution = [
+  {
+    toolName: 'query',
+    state: 'output-available',
+    input: '{"query": "SELECT transaction_id, amount, status FROM transactions WHERE amount > 1000 LIMIT 10"}',
+    output: demoResults.transactionResult
+  },
+  {
+    toolName: 'query',
+    state: 'output-available',
+    input: '{"query": "SELECT column_name, data_type FROM project.dataset.INFORMATION_SCHEMA.COLUMNS WHERE table_name = \'transactions\'"}',
+    output: demoResults.schemaResult
+  },
+  {
+    toolName: 'query',
+    state: 'output-error',
+    input: '{"query": "SELECT * FROM non_existent_table"}',
+    errorText: 'Table not found: `non_existent_table`'
+  }
+];
+
 interface DemoResultsProps {
   onClose: () => void;
 }
@@ -94,6 +117,17 @@ export function DemoResults({ onClose }: DemoResultsProps) {
         </div>
         
         <div className="p-6 space-y-8">
+          <div>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+              New Tool Execution Cards (Collapsible)
+            </h3>
+            <div className="space-y-4">
+              {demoToolExecution.map((part, index) => (
+                <ToolExecutionDisplay key={index} part={part} index={index} />
+              ))}
+            </div>
+          </div>
+
           <div>
             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
               Schema Information Display

@@ -11,6 +11,7 @@ interface ToolExecutionDisplayProps {
 export function ToolExecutionDisplay({ part, index }: ToolExecutionDisplayProps) {
   const [duration, setDuration] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (part.state === 'input-streaming' || part.state === 'input-available') {
@@ -32,225 +33,231 @@ export function ToolExecutionDisplay({ part, index }: ToolExecutionDisplayProps)
   const getToolIcon = (toolName: string) => {
     if (toolName?.toLowerCase().includes('bigquery')) {
       return (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+          <path d="M12 2l2.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          <circle cx="12" cy="12" r="3" fillOpacity="0.4"/>
         </svg>
       );
     }
     return (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+      <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+        <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
       </svg>
     );
   };
 
-  const getStateConfig = (state: string) => {
-    switch (state) {
-      case 'input-streaming':
-        return {
-          color: 'blue',
-          label: 'Preparing',
-          icon: (
-            <div className="animate-spin w-4 h-4">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12a9 9 0 11-6.219-8.56"/>
-              </svg>
-            </div>
-          ),
-          description: 'Setting up query parameters...'
-        };
-      case 'input-available':
-        return {
-          color: 'amber',
-          label: 'Executing',
-          icon: (
-            <div className="animate-pulse w-4 h-4">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            </div>
-          ),
-          description: 'Running query on BigQuery...'
-        };
-      case 'output-available':
-        return {
-          color: 'green',
-          label: 'Completed',
-          icon: (
-            <div className="w-4 h-4">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-            </div>
-          ),
-          description: 'Query executed successfully'
-        };
-      case 'output-error':
-        return {
-          color: 'red',
-          label: 'Failed',
-          icon: (
-            <div className="w-4 h-4">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </div>
-          ),
-          description: 'Query execution failed'
-        };
-      default:
-        return {
-          color: 'gray',
-          label: 'Unknown',
-          icon: (
-            <div className="w-4 h-4">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-              </svg>
-            </div>
-          ),
-          description: 'Processing...'
-        };
+  const getFormattedToolName = (toolName: string) => {
+    if (toolName?.toLowerCase().includes('bigquery') || toolName?.toLowerCase() === 'query') {
+      return 'BigQuery Database Tool';
     }
+    return toolName || 'Database Tool';
   };
 
-  const stateConfig = getStateConfig(part.state);
+  const getQuerySummary = (input: any) => {
+    if (!input) return null;
+    
+    const inputStr = typeof input === 'string' ? input : JSON.stringify(input);
+    
+    // Try to extract query from common patterns
+    const queryMatch = inputStr.match(/"query":\s*"([^"]+)"/);
+    if (queryMatch) {
+      const query = queryMatch[1].replace(/\\n/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      // Create a human-readable summary
+      if (query.toLowerCase().includes('select')) {
+        const tableMatch = query.match(/from\s+[`"]?([^`"\s,]+)[`"]?/i);
+        const limitMatch = query.match(/limit\s+(\d+)/i);
+        const whereMatch = query.toLowerCase().includes('where');
+        const countMatch = query.toLowerCase().includes('count(');
+        
+        let summary = countMatch ? 'Counted records' : 'Selected data';
+        
+        if (tableMatch) {
+          const tableName = tableMatch[1].split('.').pop(); // Get table name without schema
+          summary += ` from ${tableName}`;
+        }
+        
+        if (whereMatch && !countMatch) {
+          summary += ' (filtered)';
+        }
+        
+        if (limitMatch) {
+          summary += ` (${limitMatch[1]} rows)`;
+        }
+        
+        return summary;
+      } else if (query.toLowerCase().includes('information_schema.columns')) {
+        return 'Retrieved table schema information';
+      } else if (query.toLowerCase().includes('information_schema.tables')) {
+        return 'Listed available tables';
+      } else if (query.toLowerCase().includes('information_schema.schemata')) {
+        return 'Listed available datasets';
+      } else if (query.toLowerCase().includes('describe') || query.toLowerCase().includes('show')) {
+        return 'Retrieved metadata information';
+      }
+    }
+    
+    return 'Executed database query';
+  };
+
   const toolName = part.toolName || 'Tool';
+  const formattedToolName = getFormattedToolName(toolName);
+  const querySummary = getQuerySummary(part.input);
+
+  // For completed tools, default to collapsed state
+  const defaultExpanded = part.state !== 'output-available';
 
   return (
-    <div className="mt-3 space-y-3">
-      {/* Tool Execution Header */}
-      <div className={`
-        bg-gradient-to-r rounded-lg p-4 border-l-4 transition-all duration-300
-        ${stateConfig.color === 'blue' ? 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-blue-400 dark:border-blue-500' : ''}
-        ${stateConfig.color === 'amber' ? 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-400 dark:border-amber-500' : ''}
-        ${stateConfig.color === 'green' ? 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-400 dark:border-green-500' : ''}
-        ${stateConfig.color === 'red' ? 'from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-400 dark:border-red-500' : ''}
-        ${stateConfig.color === 'gray' ? 'from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 border-gray-400 dark:border-gray-500' : ''}
-      `}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className={`
-              p-2 rounded-full
-              ${stateConfig.color === 'blue' ? 'bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300' : ''}
-              ${stateConfig.color === 'amber' ? 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300' : ''}
-              ${stateConfig.color === 'green' ? 'bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300' : ''}
-              ${stateConfig.color === 'red' ? 'bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300' : ''}
-              ${stateConfig.color === 'gray' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' : ''}
-            `}>
-              {getToolIcon(toolName)}
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h4 className={`
-                  font-semibold text-sm
-                  ${stateConfig.color === 'blue' ? 'text-blue-900 dark:text-blue-100' : ''}
-                  ${stateConfig.color === 'amber' ? 'text-amber-900 dark:text-amber-100' : ''}
-                  ${stateConfig.color === 'green' ? 'text-green-900 dark:text-green-100' : ''}
-                  ${stateConfig.color === 'red' ? 'text-red-900 dark:text-red-100' : ''}
-                  ${stateConfig.color === 'gray' ? 'text-gray-900 dark:text-gray-100' : ''}
-                `}>
-                  {toolName}
-                </h4>
-                <span className={`
-                  px-2 py-1 text-xs font-medium rounded-full
-                  ${stateConfig.color === 'blue' ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200' : ''}
-                  ${stateConfig.color === 'amber' ? 'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-200' : ''}
-                  ${stateConfig.color === 'green' ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200' : ''}
-                  ${stateConfig.color === 'red' ? 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200' : ''}
-                  ${stateConfig.color === 'gray' ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200' : ''}
-                `}>
-                  {stateConfig.label}
-                </span>
-              </div>
-              <p className={`
-                text-xs mt-1
-                ${stateConfig.color === 'blue' ? 'text-blue-700 dark:text-blue-300' : ''}
-                ${stateConfig.color === 'amber' ? 'text-amber-700 dark:text-amber-300' : ''}
-                ${stateConfig.color === 'green' ? 'text-green-700 dark:text-green-300' : ''}
-                ${stateConfig.color === 'red' ? 'text-red-700 dark:text-red-300' : ''}
-                ${stateConfig.color === 'gray' ? 'text-gray-700 dark:text-gray-300' : ''}
+    <div className="mt-3">
+      {/* Collapsible Tool Card */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
+        {/* Card Header - Always Visible */}
+        <div 
+          className="px-4 py-3 cursor-pointer"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              {/* Tool Icon */}
+              <div className={`
+                p-2 rounded-lg transition-colors
+                ${part.state === 'output-available' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : ''}
+                ${part.state === 'input-streaming' || part.state === 'input-available' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''}
+                ${part.state === 'output-error' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : ''}
               `}>
-                {stateConfig.description}
-              </p>
+                {getToolIcon(toolName)}
+              </div>
+              
+              {/* Tool Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {formattedToolName}
+                  </h3>
+                  
+                  {/* Status Badge */}
+                  <span className={`
+                    inline-flex items-center px-2 py-1 text-xs font-medium rounded-full
+                    ${part.state === 'output-available' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : ''}
+                    ${part.state === 'input-streaming' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : ''}
+                    ${part.state === 'input-available' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : ''}
+                    ${part.state === 'output-error' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : ''}
+                  `}>
+                    {part.state === 'output-available' && '✓ Completed'}
+                    {part.state === 'input-streaming' && '⏳ Preparing'}
+                    {part.state === 'input-available' && '▶ Running'}
+                    {part.state === 'output-error' && '✗ Failed'}
+                  </span>
+                  
+                  {/* Duration for active states */}
+                  {(part.state === 'input-streaming' || part.state === 'input-available') && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                      {formatDuration(duration)}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Query Summary */}
+                {querySummary && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                    {querySummary}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            {/* Expand/Collapse Button */}
+            <div className="flex items-center space-x-2">
+              {/* Progress indicator for active states */}
+              {(part.state === 'input-streaming' || part.state === 'input-available') && (
+                <div className="w-4 h-4">
+                  {part.state === 'input-streaming' ? (
+                    <div className="animate-spin w-4 h-4 text-blue-500">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="animate-pulse w-4 h-4 text-amber-500">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Chevron */}
+              <div className={`
+                w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform duration-200
+                ${isExpanded ? 'rotate-180' : ''}
+              `}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
-            {(part.state === 'input-streaming' || part.state === 'input-available') && (
-              <div className={`
-                text-xs font-mono
-                ${stateConfig.color === 'blue' ? 'text-blue-600 dark:text-blue-400' : ''}
-                ${stateConfig.color === 'amber' ? 'text-amber-600 dark:text-amber-400' : ''}
-              `}>
-                {formatDuration(duration)}
+          {/* Progress bar for active states */}
+          {(part.state === 'input-streaming' || part.state === 'input-available') && (
+            <div className="mt-3">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+                <div className={`
+                  h-1 rounded-full transition-all duration-300
+                  ${part.state === 'input-streaming' ? 'bg-blue-500 w-1/3 animate-pulse' : 'bg-amber-500 w-2/3'}
+                `}></div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Expandable Content */}
+        <div className={`
+          overflow-hidden transition-all duration-300 ease-in-out
+          ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}
+        `}>
+          <div className="border-t border-gray-100 dark:border-gray-700">
+            {/* Query Parameters */}
+            {part.input && (
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50">
+                <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Query Parameters:</h4>
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded p-3">
+                  <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                    {typeof part.input === 'string' ? part.input : JSON.stringify(part.input, null, 2)}
+                  </pre>
+                </div>
               </div>
             )}
-            <div className={`
-              ${stateConfig.color === 'blue' ? 'text-blue-600 dark:text-blue-400' : ''}
-              ${stateConfig.color === 'amber' ? 'text-amber-600 dark:text-amber-400' : ''}
-              ${stateConfig.color === 'green' ? 'text-green-600 dark:text-green-400' : ''}
-              ${stateConfig.color === 'red' ? 'text-red-600 dark:text-red-400' : ''}
-              ${stateConfig.color === 'gray' ? 'text-gray-600 dark:text-gray-400' : ''}
-            `}>
-              {stateConfig.icon}
-            </div>
-          </div>
-        </div>
-
-        {/* Progress bar for active states */}
-        {(part.state === 'input-streaming' || part.state === 'input-available') && (
-          <div className="mt-3">
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-              <div className={`
-                h-1 rounded-full transition-all duration-300
-                ${stateConfig.color === 'blue' ? 'bg-blue-500' : ''}
-                ${stateConfig.color === 'amber' ? 'bg-amber-500' : ''}
-                ${part.state === 'input-streaming' ? 'w-1/3 animate-pulse' : 'w-2/3'}
-              `}></div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Tool Output */}
-      {part.state === 'output-available' && (
-        <div className="ml-4">
-          <BigQueryResultDisplay output={part.output} toolName={toolName} />
-        </div>
-      )}
-
-      {part.state === 'output-error' && (
-        <div className="ml-4">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-5 h-5 text-red-500">
-                <svg viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
+            
+            {/* Results */}
+            {part.state === 'output-available' && (
+              <div className="p-4">
+                <BigQueryResultDisplay output={part.output} toolName={formattedToolName} />
               </div>
-              <span className="text-red-700 dark:text-red-300 font-medium">Execution Error</span>
-            </div>
-            <p className="mt-2 text-red-700 dark:text-red-300 text-sm">
-              {part.errorText || 'An unknown error occurred during tool execution.'}
-            </p>
+            )}
+            
+            {/* Error Display */}
+            {part.state === 'output-error' && (
+              <div className="p-4">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-red-500">
+                      <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-red-700 dark:text-red-300 font-medium">Execution Error</span>
+                  </div>
+                  <p className="mt-2 text-red-700 dark:text-red-300 text-sm">
+                    {part.errorText || 'An unknown error occurred during tool execution.'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Tool Input Display (for debugging/transparency) */}
-      {part.state === 'input-available' && part.input && (
-        <details className="ml-4 group">
-          <summary className="cursor-pointer text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
-            View query parameters
-          </summary>
-          <div className="mt-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3">
-            <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto">
-              {typeof part.input === 'string' ? part.input : JSON.stringify(part.input, null, 2)}
-            </pre>
-          </div>
-        </details>
-      )}
+      </div>
     </div>
   );
 }
