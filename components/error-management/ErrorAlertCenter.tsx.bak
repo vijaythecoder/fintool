@@ -1,0 +1,519 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, Clock, CheckCircle, XCircle, MessageSquare, User, Filter } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+
+interface Alert {
+  id: string;
+  type: string;
+  severity: {
+    level: number;
+    color: string;
+    escalation: string;
+  };
+  metric: string;
+  value: number;
+  threshold: number;
+  message: string;
+  timestamp: number;
+  tags: Record<string, any>;
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
+  acknowledgedBy?: string;
+  acknowledgedAt?: number;
+  resolvedBy?: string;
+  resolvedAt?: number;
+  acknowledgmentReason?: string;
+  resolution?: string;
+}
+
+interface ErrorAlertCenterProps {
+  workflowId?: string;
+  batchId?: string;
+}
+
+export function ErrorAlertCenter({ workflowId, batchId }: ErrorAlertCenterProps) {
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [filteredAlerts, setFilteredAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [acknowledgmentReason, setAcknowledgmentReason] = useState('');
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterSeverity, setFilterSeverity] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    fetchAlerts();
+  }, [workflowId, batchId]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [alerts, filterStatus, filterSeverity, searchQuery]);
+
+  const fetchAlerts = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (workflowId) params.append('workflowId', workflowId);
+      if (batchId) params.append('batchId', batchId);
+      
+      const response = await fetch(`/api/cash-clearing/monitoring/alerts?${params}`);
+      const data = await response.json();
+      
+      setAlerts(data.alerts || []);
+    } catch (error) {
+      console.error('Failed to fetch alerts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...alerts];
+
+    // Filter by status
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(alert => alert.status === filterStatus);
+    }
+
+    // Filter by severity
+    if (filterSeverity !== 'all') {
+      filtered = filtered.filter(alert => alert.severity.level === parseInt(filterSeverity));
+    }
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(alert => 
+        alert.message.toLowerCase().includes(query) ||
+        alert.type.toLowerCase().includes(query) ||
+        alert.metric.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort by severity and timestamp
+    filtered.sort((a, b) => {
+      if (a.severity.level !== b.severity.level) {
+        return a.severity.level - b.severity.level; // Higher severity first
+      }
+      return b.timestamp - a.timestamp; // Newer first
+    });
+
+    setFilteredAlerts(filtered);
+  };
+
+  const acknowledgeAlert = async (alertId: string, reason: string) => {
+    try {
+      const response = await fetch(`/api/cash-clearing/monitoring/alerts/${alertId}/acknowledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+
+      if (response.ok) {
+        fetchAlerts();
+        setSelectedAlert(null);
+        setAcknowledgmentReason('');
+      }
+    } catch (error) {
+      console.error('Failed to acknowledge alert:', error);
+    }
+  };
+
+  const resolveAlert = async (alertId: string, resolution: string) => {
+    try {
+      const response = await fetch(`/api/cash-clearing/monitoring/alerts/${alertId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution })
+      });
+
+      if (response.ok) {
+        fetchAlerts();
+        setSelectedAlert(null);
+        setResolutionNote('');
+      }
+    } catch (error) {
+      console.error('Failed to resolve alert:', error);
+    }
+  };
+
+  const getSeverityBadge = (severity: Alert['severity']) => {
+    const severityLabels = ['', 'Critical', 'High', 'Medium', 'Low', 'Info'];
+    const severityColors = ['', 'destructive', 'secondary', 'secondary', 'secondary', 'outline'];
+    
+    return (
+      <Badge variant={severityColors[severity.level] as any} className="text-xs">
+        {severityLabels[severity.level]}
+      </Badge>
+    );
+  };
+
+  const getStatusIcon = (alert: Alert) => {
+    switch (alert.status) {
+      case 'ACTIVE':
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      case 'ACKNOWLEDGED':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'RESOLVED':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      default:
+        return <XCircle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filters and Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Alert Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Search</label>
+              <Input
+                placeholder="Search alerts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Status</label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="ACKNOWLEDGED">Acknowledged</SelectItem>
+                  <SelectItem value="RESOLVED">Resolved</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Severity</label>
+              <Select value={filterSeverity} onValueChange={setFilterSeverity}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Severities</SelectItem>
+                  <SelectItem value="1">Critical</SelectItem>
+                  <SelectItem value="2">High</SelectItem>
+                  <SelectItem value="3">Medium</SelectItem>
+                  <SelectItem value="4">Low</SelectItem>
+                  <SelectItem value="5">Info</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button variant="outline" onClick={() => {
+                setFilterStatus('all');
+                setFilterSeverity('all');
+                setSearchQuery('');
+              }}>
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Alert Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {alerts.filter(a => a.status === 'ACTIVE').length}
+              </div>
+              <div className="text-sm text-muted-foreground">Active Alerts</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">
+                {alerts.filter(a => a.status === 'ACKNOWLEDGED').length}
+              </div>
+              <div className="text-sm text-muted-foreground">Acknowledged</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {alerts.filter(a => a.status === 'RESOLVED').length}
+              </div>
+              <div className="text-sm text-muted-foreground">Resolved</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {alerts.filter(a => a.severity.level === 1).length}
+              </div>
+              <div className="text-sm text-muted-foreground">Critical</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alert List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Alerts ({filteredAlerts.length})</CardTitle>
+          <CardDescription>
+            Monitor and manage system alerts for error detection and resolution
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredAlerts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+              <div className="text-lg font-medium">No alerts found</div>
+              <div className="text-sm">All systems are operating normally</div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3 flex-1">
+                      {getStatusIcon(alert)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          {getSeverityBadge(alert.severity)}
+                          <Badge variant="outline" className="text-xs">
+                            {alert.type.replace(/_/g, ' ')}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(alert.timestamp)} ago
+                          </span>
+                        </div>
+                        <div className="font-medium text-sm mb-1">{alert.message}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Metric: {alert.metric} | Value: {alert.value} | Threshold: {alert.threshold}
+                        </div>
+                        {alert.tags && Object.keys(alert.tags).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {Object.entries(alert.tags).map(([key, value]) => (
+                              <Badge key={key} variant="outline" className="text-xs">
+                                {key}: {String(value)}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {alert.acknowledgedBy && (
+                          <div className="flex items-center space-x-1 mt-2 text-xs text-muted-foreground">
+                            <User className="h-3 w-3" />
+                            <span>Acknowledged by {alert.acknowledgedBy}</span>
+                            {alert.acknowledgmentReason && (
+                              <span>- {alert.acknowledgmentReason}</span>
+                            )}
+                          </div>
+                        )}
+                        {alert.resolvedBy && (
+                          <div className="flex items-center space-x-1 mt-2 text-xs text-muted-foreground">
+                            <CheckCircle className="h-3 w-3" />
+                            <span>Resolved by {alert.resolvedBy}</span>
+                            {alert.resolution && (
+                              <span>- {alert.resolution}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 ml-4">
+                      {alert.status === 'ACTIVE' && (
+                        <>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" onClick={() => setSelectedAlert(alert)}>
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                Acknowledge
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Acknowledge Alert</DialogTitle>
+                                <DialogDescription>
+                                  Provide a reason for acknowledging this alert. This will mark it as being handled.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="text-sm font-medium">Alert Details</label>
+                                  <div className="text-sm text-muted-foreground mt-1">
+                                    {alert.message}
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium">Acknowledgment Reason</label>
+                                  <Textarea
+                                    placeholder="Explain why you're acknowledging this alert..."
+                                    value={acknowledgmentReason}
+                                    onChange={(e) => setAcknowledgmentReason(e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedAlert(null);
+                                    setAcknowledgmentReason('');
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={() => acknowledgeAlert(alert.id, acknowledgmentReason)}
+                                  disabled={!acknowledgmentReason.trim()}
+                                >
+                                  Acknowledge Alert
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="default" size="sm" onClick={() => setSelectedAlert(alert)}>
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Resolve
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Resolve Alert</DialogTitle>
+                                <DialogDescription>
+                                  Mark this alert as resolved and provide details about the resolution.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="text-sm font-medium">Alert Details</label>
+                                  <div className="text-sm text-muted-foreground mt-1">
+                                    {alert.message}
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium">Resolution Notes</label>
+                                  <Textarea
+                                    placeholder="Describe how this alert was resolved..."
+                                    value={resolutionNote}
+                                    onChange={(e) => setResolutionNote(e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedAlert(null);
+                                    setResolutionNote('');
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={() => resolveAlert(alert.id, resolutionNote)}
+                                  disabled={!resolutionNote.trim()}
+                                >
+                                  Resolve Alert
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </>
+                      )}
+                      {alert.status === 'ACKNOWLEDGED' && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="default" size="sm" onClick={() => setSelectedAlert(alert)}>
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Resolve
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Resolve Alert</DialogTitle>
+                              <DialogDescription>
+                                Mark this alert as resolved and provide details about the resolution.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="text-sm font-medium">Alert Details</label>
+                                <div className="text-sm text-muted-foreground mt-1">
+                                  {alert.message}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Resolution Notes</label>
+                                <Textarea
+                                  placeholder="Describe how this alert was resolved..."
+                                  value={resolutionNote}
+                                  onChange={(e) => setResolutionNote(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedAlert(null);
+                                  setResolutionNote('');
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={() => resolveAlert(alert.id, resolutionNote)}
+                                disabled={!resolutionNote.trim()}
+                              >
+                                Resolve Alert
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

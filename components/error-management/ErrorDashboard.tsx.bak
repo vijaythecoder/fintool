@@ -1,0 +1,239 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertTriangle, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { ErrorAlertCenter } from './ErrorAlertCenter';
+import { ErrorPatternAnalysis } from './ErrorPatternAnalysis';
+import { RecoveryActionCenter } from './RecoveryActionCenter';
+import { PerformanceMetrics } from './PerformanceMetrics';
+
+interface SystemHealth {
+  timestamp: number;
+  overall: 'HEALTHY' | 'WARNING' | 'DEGRADED' | 'CRITICAL';
+  components: Record<string, any>;
+  metrics: {
+    error_rate: number;
+    avg_processing_time: number;
+    active_workflows: number;
+    resource_utilization: number;
+  };
+  alerts: {
+    active: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+}
+
+interface ErrorDashboardProps {
+  workflowId?: string;
+  batchId?: string;
+  refreshInterval?: number;
+}
+
+export function ErrorDashboard({ 
+  workflowId, 
+  batchId, 
+  refreshInterval = 30000 
+}: ErrorDashboardProps) {
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  useEffect(() => {
+    fetchSystemHealth();
+    
+    if (autoRefresh) {
+      const interval = setInterval(fetchSystemHealth, refreshInterval);
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, refreshInterval]);
+
+  const fetchSystemHealth = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (workflowId) params.append('workflowId', workflowId);
+      if (batchId) params.append('batchId', batchId);
+      
+      const response = await fetch(`/api/cash-clearing/monitoring/health?${params}`);
+      const data = await response.json();
+      
+      setSystemHealth(data);
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error('Failed to fetch system health:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getHealthStatusColor = (status: string) => {
+    switch (status) {
+      case 'HEALTHY': return 'bg-green-500';
+      case 'WARNING': return 'bg-yellow-500';
+      case 'DEGRADED': return 'bg-orange-500';
+      case 'CRITICAL': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getHealthStatusIcon = (status: string) => {
+    switch (status) {
+      case 'HEALTHY': return CheckCircle;
+      case 'WARNING': return AlertTriangle;
+      case 'DEGRADED': return TrendingDown;
+      case 'CRITICAL': return XCircle;
+      default: return Clock;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className=\"flex items-center justify-center h-64\">
+        <div className=\"animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600\"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className=\"space-y-6\">
+      {/* Header */}
+      <div className=\"flex items-center justify-between\">
+        <div>
+          <h1 className=\"text-3xl font-bold tracking-tight\">Error Management Dashboard</h1>
+          <p className=\"text-muted-foreground\">
+            Monitor system health, error patterns, and recovery operations
+          </p>
+        </div>
+        <div className=\"flex items-center space-x-2\">
+          <Button
+            variant=\"outline\"
+            size=\"sm\"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
+            Auto Refresh {autoRefresh ? 'On' : 'Off'}
+          </Button>
+          <Button variant=\"outline\" size=\"sm\" onClick={fetchSystemHealth}>
+            <RefreshCw className=\"h-4 w-4 mr-2\" />
+            Refresh Now
+          </Button>
+        </div>
+      </div>
+
+      {/* System Health Overview */}
+      {systemHealth && (
+        <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4\">
+          <Card>
+            <CardHeader className=\"flex flex-row items-center justify-between space-y-0 pb-2\">
+              <CardTitle className=\"text-sm font-medium\">System Health</CardTitle>
+              {React.createElement(getHealthStatusIcon(systemHealth.overall), {
+                className: `h-4 w-4 ${systemHealth.overall === 'HEALTHY' ? 'text-green-600' : 
+                  systemHealth.overall === 'WARNING' ? 'text-yellow-600' :
+                  systemHealth.overall === 'DEGRADED' ? 'text-orange-600' : 'text-red-600'}`
+              })}
+            </CardHeader>
+            <CardContent>
+              <div className=\"flex items-center space-x-2\">
+                <div className={`w-3 h-3 rounded-full ${getHealthStatusColor(systemHealth.overall)}`}></div>
+                <span className=\"text-2xl font-bold\">{systemHealth.overall}</span>
+              </div>
+              <p className=\"text-xs text-muted-foreground mt-1\">
+                Last updated: {lastUpdate?.toLocaleTimeString()}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className=\"flex flex-row items-center justify-between space-y-0 pb-2\">
+              <CardTitle className=\"text-sm font-medium\">Active Alerts</CardTitle>
+              <AlertTriangle className=\"h-4 w-4 text-muted-foreground\" />
+            </CardHeader>
+            <CardContent>
+              <div className=\"text-2xl font-bold\">{systemHealth.alerts.active}</div>
+              <div className=\"flex space-x-2 mt-2\">
+                {systemHealth.alerts.critical > 0 && (
+                  <Badge variant=\"destructive\" className=\"text-xs\">
+                    {systemHealth.alerts.critical} Critical
+                  </Badge>
+                )}
+                {systemHealth.alerts.high > 0 && (
+                  <Badge variant=\"secondary\" className=\"text-xs bg-orange-100 text-orange-800\">
+                    {systemHealth.alerts.high} High
+                  </Badge>
+                )}
+                {systemHealth.alerts.medium > 0 && (
+                  <Badge variant=\"secondary\" className=\"text-xs bg-yellow-100 text-yellow-800\">
+                    {systemHealth.alerts.medium} Medium
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className=\"flex flex-row items-center justify-between space-y-0 pb-2\">
+              <CardTitle className=\"text-sm font-medium\">Error Rate</CardTitle>
+              <TrendingUp className=\"h-4 w-4 text-muted-foreground\" />
+            </CardHeader>
+            <CardContent>
+              <div className=\"text-2xl font-bold\">
+                {(systemHealth.metrics.error_rate * 100).toFixed(2)}%
+              </div>
+              <p className=\"text-xs text-muted-foreground\">
+                {systemHealth.metrics.error_rate < 0.05 ? 'Within threshold' : 'Above threshold'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className=\"flex flex-row items-center justify-between space-y-0 pb-2\">
+              <CardTitle className=\"text-sm font-medium\">Processing Time</CardTitle>
+              <Clock className=\"h-4 w-4 text-muted-foreground\" />
+            </CardHeader>
+            <CardContent>
+              <div className=\"text-2xl font-bold\">
+                {Math.round(systemHealth.metrics.avg_processing_time / 1000)}s
+              </div>
+              <p className=\"text-xs text-muted-foreground\">
+                Average per transaction
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Main Dashboard Tabs */}
+      <Tabs defaultValue=\"alerts\" className=\"space-y-4\">
+        <TabsList className=\"grid w-full grid-cols-4\">
+          <TabsTrigger value=\"alerts\">Alert Center</TabsTrigger>
+          <TabsTrigger value=\"patterns\">Error Patterns</TabsTrigger>
+          <TabsTrigger value=\"recovery\">Recovery Actions</TabsTrigger>
+          <TabsTrigger value=\"performance\">Performance</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value=\"alerts\" className=\"space-y-4\">
+          <ErrorAlertCenter workflowId={workflowId} batchId={batchId} />
+        </TabsContent>
+
+        <TabsContent value=\"patterns\" className=\"space-y-4\">
+          <ErrorPatternAnalysis workflowId={workflowId} batchId={batchId} />
+        </TabsContent>
+
+        <TabsContent value=\"recovery\" className=\"space-y-4\">
+          <RecoveryActionCenter workflowId={workflowId} batchId={batchId} />
+        </TabsContent>
+
+        <TabsContent value=\"performance\" className=\"space-y-4\">
+          <PerformanceMetrics workflowId={workflowId} batchId={batchId} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

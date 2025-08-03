@@ -13,12 +13,7 @@
     "backend:run-now": "node src/index.js --run-now",
     "backend:dev": "node --watch src/index.js",
     "test": "node --test",
-    "typecheck": "tsc --noEmit",
-    "performance:benchmark": "node src/performance/benchmarks/runBenchmarks.js full",
-    "performance:validate": "node src/performance/benchmarks/runBenchmarks.js validate",
-    "performance:quick": "node src/performance/benchmarks/runBenchmarks.js quick",
-    "performance:stress": "node src/performance/benchmarks/runBenchmarks.js stress",
-    "performance:monitor": "node src/performance/monitoring/startMonitoring.js"
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "financial",
@@ -26,9 +21,7 @@
     "bigquery",
     "mcp",
     "cash-clearing",
-    "transaction-processing",
-    "performance-optimization",
-    "high-throughput"
+    "transaction-processing"
   ],
   "author": "Financial Processing Team",
   "license": "MIT",
