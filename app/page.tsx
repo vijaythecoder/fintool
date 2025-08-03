@@ -3,9 +3,14 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai';
 import { useState } from 'react';
+import { MarkdownRenderer } from '@/components/markdown-renderer';
+import { FinancialDataTable } from '@/components/financial-data-table';
+import { ToolExecutionDisplay } from '@/components/tool-execution-display';
+import { DemoResults } from '@/components/demo-results';
 
 export default function ChatPage() {
   const [input, setInput] = useState('');
+  const [showDemo, setShowDemo] = useState(false);
   
   const { messages, sendMessage, status, stop, error } = useChat({
     transport: new DefaultChatTransport({
@@ -40,30 +45,89 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen max-w-5xl mx-auto p-4">
       <header className="mb-8 mt-4">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Financial Data Chat
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Ask questions about your financial transactions using natural language
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Financial Data Chat
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              Ask questions about your financial transactions using natural language
+            </p>
+          </div>
+          <button
+            onClick={() => setShowDemo(true)}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            View UI Demo
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto mb-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              Welcome! You can ask questions like:
-            </p>
-            <div className="space-y-2 text-sm">
-              <p className="text-blue-600 dark:text-blue-400">
-                "Show me unmatched transactions from yesterday"
-              </p>
-              <p className="text-blue-600 dark:text-blue-400">
-                "What's the success rate for cash clearing this week?"
-              </p>
-              <p className="text-blue-600 dark:text-blue-400">
-                "Find transactions with amount &gt; $10,000"
-              </p>
+            <div className="max-w-2xl mx-auto">
+              <div className="mb-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Welcome to Financial Data Chat
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Ask questions about your financial data using natural language. I'll query BigQuery and present results in a beautiful, easy-to-understand format.
+                </p>
+              </div>
+              
+              <div className="grid gap-3 md:grid-cols-1 max-w-lg mx-auto">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                     onClick={() => setInput("Show me unmatched transactions from yesterday")}>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-blue-600 dark:text-blue-400">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                    </div>
+                    <span className="text-blue-700 dark:text-blue-300 font-medium text-sm">
+                      "Show me unmatched transactions from yesterday"
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 border border-green-200 dark:border-green-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                     onClick={() => setInput("What's the success rate for cash clearing this week?")}>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-green-600 dark:text-green-400">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                      </svg>
+                    </div>
+                    <span className="text-green-700 dark:text-green-300 font-medium text-sm">
+                      "What's the success rate for cash clearing this week?"
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/10 dark:to-violet-900/10 border border-purple-200 dark:border-purple-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                     onClick={() => setInput("Find transactions with amount > $10,000")}>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-purple-600 dark:text-purple-400">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M7 4V2C7 1.45 7.45 1 8 1S9 1.45 9 2V4H15V2C15 1.45 15.45 1 16 1S17 1.45 17 2V4H20C20.55 4 21 4.45 21 5V8H3V5C3 4.45 3.45 4 4 4H7ZM3 19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V10H3V19ZM12 12H17V17H12V12Z"/>
+                      </svg>
+                    </div>
+                    <span className="text-purple-700 dark:text-purple-300 font-medium text-sm">
+                      "Find transactions with amount {'>'} $10,000"
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 text-xs text-gray-500 dark:text-gray-400">
+                Click any example to try it, or type your own question below
+              </div>
             </div>
           </div>
         )}
@@ -85,99 +149,12 @@ export default function ChatPage() {
               {message.parts?.map((part, index) => {
                 switch (part.type) {
                   case 'text':
-                    return <p key={index} className="whitespace-pre-wrap">{part.text}</p>;
+                    return <MarkdownRenderer key={index} content={part.text} />;
                   
-                  case 'tool-invocation':
-                    return (
-                      <div key={index} className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          Tool: {part.toolInvocation?.toolName}
-                        </p>
-                        {part.toolInvocation?.state === 'result' && (
-                          <div className="mt-2">
-                            {part.toolInvocation.result}
-                          </div>
-                        )}
-                      </div>
-                    );
                   
                   case 'dynamic-tool':
                     // Handle MCP tools which come as dynamic-tool
-                    return (
-                      <div key={index} className="mt-2">
-                        {(part as any).state === 'input-streaming' && (
-                          <div className="text-sm text-gray-500">
-                            Executing {(part as any).toolName}...
-                          </div>
-                        )}
-                        {(part as any).state === 'input-available' && (
-                          <div className="text-sm text-gray-500">
-                            Running {(part as any).toolName} with parameters...
-                          </div>
-                        )}
-                        {(part as any).state === 'output-available' && (
-                          <div className="mt-2">
-                            {/* Handle MCP tool output format */}
-                            {(() => {
-                              try {
-                                const output = (part as any).output;
-                                
-                                // Handle MCP response format {content, isError}
-                                if (output && typeof output === 'object' && 'content' in output) {
-                                  if (output.isError) {
-                                    return (
-                                      <div className="text-red-500">
-                                        Error: {output.content}
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  // Try to parse content as JSON for better display
-                                  try {
-                                    const parsed = typeof output.content === 'string' 
-                                      ? JSON.parse(output.content) 
-                                      : output.content;
-                                    return (
-                                      <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto text-sm">
-                                        {JSON.stringify(parsed, null, 2)}
-                                      </pre>
-                                    );
-                                  } catch {
-                                    // If not JSON, display content as-is
-                                    return <div className="whitespace-pre-wrap">{String(output.content)}</div>;
-                                  }
-                                }
-                                
-                                // Handle string output
-                                if (typeof output === 'string') {
-                                  try {
-                                    const parsed = JSON.parse(output);
-                                    return (
-                                      <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto text-sm">
-                                        {JSON.stringify(parsed, null, 2)}
-                                      </pre>
-                                    );
-                                  } catch {
-                                    return <div>{output}</div>;
-                                  }
-                                }
-                                
-                                // Fallback for other types
-                                return <div>{JSON.stringify(output)}</div>;
-                              } catch (error) {
-                                console.error('Error rendering tool output:', error);
-                                return <div className="text-red-500">Error displaying output</div>;
-                              }
-                            })()}
-                          </div>
-                        )}
-                        {(part as any).state === 'output-error' && (
-                          <div className="text-red-500">
-                            Error: {(part as any).errorText}
-                          </div>
-                        )}
-                      </div>
-                    );
+                    return <ToolExecutionDisplay key={index} part={part} index={index} />;
                   
                   default:
                     // Handle any other tool types
@@ -202,17 +179,16 @@ export default function ChatPage() {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <div className="animate-bounce">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 px-6 py-4 rounded-lg shadow-sm">
+              <div className="flex items-center space-x-3">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-200"></div>
                 </div>
-                <div className="animate-bounce delay-100">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                </div>
-                <div className="animate-bounce delay-200">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                </div>
+                <span className="text-blue-700 dark:text-blue-300 text-sm font-medium">
+                  AI is thinking...
+                </span>
               </div>
             </div>
           </div>
@@ -247,6 +223,8 @@ export default function ChatPage() {
           )}
         </div>
       </form>
+
+      {showDemo && <DemoResults onClose={() => setShowDemo(false)} />}
     </div>
   );
 }

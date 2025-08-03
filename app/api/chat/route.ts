@@ -19,7 +19,6 @@ export async function POST(request: Request) {
 
     const result = streamText({
       model: openai('gpt-4-turbo'),
-      toolCallStreaming: true,
       system: `You are a financial expert and help the user with BigQuery data when asked. 
       
       IMPORTANT: Before querying any table, ALWAYS first check its schema to understand what columns are available:
