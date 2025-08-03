@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { FinancialDataTable } from '@/components/financial-data-table';
 import { ToolExecutionDisplay } from '@/components/tool-execution-display';
@@ -11,6 +11,8 @@ import { DemoResults } from '@/components/demo-results';
 export default function ChatPage() {
   const [input, setInput] = useState('');
   const [showDemo, setShowDemo] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { messages, sendMessage, status, stop, error } = useChat({
     transport: new DefaultChatTransport({
@@ -31,26 +33,47 @@ export default function ChatPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
+      const messageText = input.trim();
+      // Clear input immediately for better UX
+      setInput('');
       try {
-        await sendMessage({ text: input });
-        setInput('');
+        await sendMessage({ text: messageText });
       } catch (err) {
         console.error('Error sending message:', err);
+        // Restore input on error
+        setInput(messageText);
       }
     }
   };
 
   const isLoading = status === 'streaming' || status === 'submitted';
 
+  // Scroll to bottom function
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Auto-scroll when messages change or status changes
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, status]);
+
+  // Auto-focus input when response is complete
+  useEffect(() => {
+    if (!isLoading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isLoading]);
+
   return (
-    <div className="flex flex-col h-screen max-w-5xl mx-auto p-4">
-      <header className="mb-8 mt-4">
-        <div className="flex items-center justify-between">
+    <div className="flex flex-col h-screen w-full">
+      <header className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               Financial Data Chat
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
+            <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm">
               Ask questions about your financial transactions using natural language
             </p>
           </div>
@@ -63,7 +86,8 @@ export default function ChatPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto space-y-4">
         {messages.length === 0 && (
           <div className="text-center py-12">
             <div className="max-w-2xl mx-auto">
@@ -142,36 +166,45 @@ export default function ChatPage() {
             <div
               className={`max-w-3xl px-4 py-3 rounded-lg ${
                 message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                  ? 'bg-gray-700 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
               }`}
             >
               {message.parts?.map((part, index) => {
-                switch (part.type) {
-                  case 'text':
-                    return <MarkdownRenderer key={index} content={part.text} />;
-                  
-                  
-                  case 'dynamic-tool':
-                    // Handle MCP tools which come as dynamic-tool
-                    return <ToolExecutionDisplay key={index} part={part} index={index} />;
-                  
-                  default:
-                    // Handle any other tool types
-                    if (part.type?.startsWith('tool-')) {
-                      return (
-                        <div key={index} className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
-                            Tool: {part.type.replace('tool-', '')}
-                          </p>
-                          {(part as any).state === 'output-available' && (
-                            <div className="mt-2">{(part as any).output}</div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                }
+                const isFirstPart = index === 0;
+                const content = (() => {
+                  switch (part.type) {
+                    case 'text':
+                      return <MarkdownRenderer key={index} content={part.text} />;
+                    
+                    case 'dynamic-tool':
+                      // Handle MCP tools which come as dynamic-tool
+                      return <ToolExecutionDisplay key={index} part={part} index={index} />;
+                    
+                    default:
+                      // Handle any other tool types
+                      if (part.type?.startsWith('tool-')) {
+                        return (
+                          <div key={index} className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                              Tool: {part.type.replace('tool-', '')}
+                            </p>
+                            {(part as any).state === 'output-available' && (
+                              <div className="mt-2">{(part as any).output}</div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                  }
+                })();
+                
+                // Add spacing between parts, but not before the first part
+                return (
+                  <div key={index} className={!isFirstPart ? 'mt-4' : ''}>
+                    {content}
+                  </div>
+                );
               })}
             </div>
           </div>
@@ -193,36 +226,42 @@ export default function ChatPage() {
             </div>
           </div>
         )}
+        {/* Scroll anchor */}
+        <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t pt-4">
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your financial data..."
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input?.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Send
-          </button>
-          {isLoading && (
+      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
+        <form onSubmit={handleSubmit} className="max-w-7xl mx-auto">
+          <div className="flex space-x-3">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about your financial data..."
+              className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              disabled={isLoading}
+            />
             <button
-              type="button"
-              onClick={() => stop()}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              type="submit"
+              disabled={isLoading || !input?.trim()}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
-              Stop
+              Send
             </button>
-          )}
-        </div>
-      </form>
+            {isLoading && (
+              <button
+                type="button"
+                onClick={() => stop()}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Stop
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
 
       {showDemo && <DemoResults onClose={() => setShowDemo(false)} />}
     </div>

@@ -33,7 +33,17 @@ export async function POST(request: Request) {
       - To list all datasets: SELECT schema_name FROM INFORMATION_SCHEMA.SCHEMATA
       - To list tables in a dataset: SELECT table_name FROM \`dataset_name.INFORMATION_SCHEMA.TABLES\`
       
-      When you receive query results from tools, provide a clear and helpful explanation of the data in natural language, summarizing key information from the results.`,
+      When presenting query results:
+      - ALWAYS format data as markdown tables when showing tabular data
+      - Use proper markdown table syntax with headers and alignment
+      - For financial amounts, include currency symbols
+      - Keep explanatory text concise and place tables prominently
+      - Example markdown table format:
+        | Column 1 | Column 2 | Column 3 |
+        |----------|----------|----------|
+        | Data 1   | Data 2   | Data 3   |
+      
+      When you receive query results from tools, provide a brief introduction followed by the data in a well-formatted markdown table.`,
       messages: convertToModelMessages(messages),
       stopWhen: stepCountIs(5), // Use stopWhen for multi-step processing
       tools: tools, // Use MCP tools directly
