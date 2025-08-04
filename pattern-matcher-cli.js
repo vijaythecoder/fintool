@@ -27,8 +27,8 @@ async function saveResultsToCSV(results, customFilename = null) {
     }
     const filepath = path.join(resultsDir, filename);
     
-    // CSV headers
-    const headers = ['bt_id', 'AI_SUGGEST_TEXT', 'AI_CONFIDENCE_SCORE', 'AI_REASON', 'AI_GL_ACCOUNT', 'AI_PRCSSR_PTRN_FT', 'UPDATED_AT'];
+    // CSV headers - including transaction details
+    const headers = ['bt_id', 'text', 'amount', 'currency', 'AI_SUGGEST_TEXT', 'AI_CONFIDENCE_SCORE', 'AI_REASON', 'AI_GL_ACCOUNT', 'AI_PRCSSR_PTRN_FT', 'UPDATED_AT'];
     
     // Create CSV content
     let csvContent = headers.join(',') + '\n';
@@ -80,8 +80,9 @@ Your task follows this exact workflow:
 
 Step 1: Query unmatched transactions
 - Get transactions from cash_transactions table where pattern='T_NOTFOUND'
-- Select: bt_id, customer_account_number, type_code, text
+- Select: bt_id, customer_account_number, type_code, text, amount, currency
 - bt_id is the primary key and must be carried through all steps
+- amount and currency must be included in final results
 
 Step 2: Pattern matching
 - Query cash_processor_patterns table
@@ -96,13 +97,16 @@ Step 3: GL Account determination
 Step 4: MANDATORY - Create final results table AND JSON output
 - Analyze each transaction and match patterns
 - Create a complete table with ALL 10 transactions
-- Include: bt_id, AI_SUGGEST_TEXT, AI_CONFIDENCE_SCORE, AI_REASON, AI_GL_ACCOUNT, AI_PRCSSR_PTRN_FT, UPDATED_AT
+- Include: bt_id, text, amount, currency, AI_SUGGEST_TEXT, AI_CONFIDENCE_SCORE, AI_REASON, AI_GL_ACCOUNT, AI_PRCSSR_PTRN_FT, UPDATED_AT
 - ALSO provide the results as JSON after the table in this exact format:
 \`\`\`json
 {
   "results": [
     {
       "bt_id": "value",
+      "text": "transaction text",
+      "amount": "numeric value",
+      "currency": "currency code",
       "AI_SUGGEST_TEXT": "value",
       "AI_CONFIDENCE_SCORE": "value",
       "AI_REASON": "value",
@@ -125,7 +129,7 @@ DO NOT end without showing BOTH the complete final results table AND the JSON ou
     const userPrompt = `Execute the 4-step cash transaction pattern matching process:
 
 Step 1: Get 10 transactions
-SELECT bt_id, customer_account_number, type_code, text 
+SELECT bt_id, customer_account_number, type_code, text, amount, currency 
 FROM ${dataset}.cash_transactions 
 WHERE pattern = 'T_NOTFOUND' 
 LIMIT 10
@@ -145,7 +149,7 @@ For each transaction from Step 1:
 Step 4: FINAL RESULTS TABLE (YOU MUST COMPLETE THIS STEP)
 After analyzing all transactions, create and display a complete results table with these columns:
 
-| bt_id | AI_SUGGEST_TEXT | AI_CONFIDENCE_SCORE | AI_REASON | AI_GL_ACCOUNT | AI_PRCSSR_PTRN_FT | UPDATED_AT |
+| bt_id | text | amount | currency | AI_SUGGEST_TEXT | AI_CONFIDENCE_SCORE | AI_REASON | AI_GL_ACCOUNT | AI_PRCSSR_PTRN_FT | UPDATED_AT |
 
 For EACH of the 10 transactions:
 1. Match the transaction text against pattern_search values
@@ -160,7 +164,7 @@ YOU MUST show the complete final table with all 10 rows filled in AND provide th
 
     // Create the stream
     const result = streamText({
-      model: openai('gpt-4.1'),
+      model: openai('gpt-4o-mini'),
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt }
@@ -214,7 +218,7 @@ YOU MUST show the complete final table with all 10 rows filled in AND provide th
     }
     
     console.log(`- Total tool calls: ${toolCallCount}`);
-    console.log(`- Model: ${openai.name || 'gpt-4-turbo'}`);
+    console.log(`- Model: gpt-4o-mini`);
     console.log('\n✨ Pattern matching completed!');
     
     // Gracefully close the MCP connection

@@ -92,7 +92,7 @@ ${options.csv ? 'Also provide the results as JSON for CSV export.' : ''}`;
 
     // Create the stream
     const result = streamText({
-      model: openai('gpt-4-turbo'),
+      model: openai('gpt-4o-mini'),
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt }
@@ -136,7 +136,7 @@ ${options.csv ? 'Also provide the results as JSON for CSV export.' : ''}`;
     // Summary
     console.log('\n\n📈 Query Summary:');
     console.log(`- Total steps: ${finalResult.steps?.length || 0}`);
-    console.log(`- Model: gpt-4-turbo`);
+    console.log(`- Model: gpt-4o-mini`);
     console.log('\n✨ Query completed!');
     
     // Gracefully close the MCP connection

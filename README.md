@@ -9,11 +9,11 @@ This system implements a 4-step process to identify patterns in cash transaction
 ## Features
 
 - 🔍 Pattern matching for unmatched cash transactions
-- 🤖 AI-powered transaction analysis using OpenAI GPT-4
+- 🤖 AI-powered transaction analysis using OpenAI GPT-4o-mini
 - 📊 BigQuery integration via Model Context Protocol (MCP)
 - 🎯 Automatic GL account and FT_ID determination
 - 📝 Detailed confidence scoring and reasoning
-- 💾 CSV export of results with customizable filenames
+- 💾 CSV export with transaction details (text, amount, currency)
 - 📁 Organized results storage with timestamp tracking
 
 ## Prerequisites
@@ -110,9 +110,9 @@ The pattern matcher follows a 4-step process:
 
 🔄 Processing transactions...
 
-| bt_id | AI_SUGGEST_TEXT | AI_CONFIDENCE_SCORE | AI_REASON | AI_GL_ACCOUNT | AI_PRCSSR_PTRN_FT | UPDATED_AT |
-|-------|-----------------|---------------------|-----------|---------------|-------------------|------------|
-| 12345 | INCOME          | 0.95                | 'INTEREST' found in text | 421025 | BANK_0649 | CURRENT_TIMESTAMP |
+| bt_id | text | amount | currency | AI_SUGGEST_TEXT | AI_CONFIDENCE_SCORE | AI_REASON | AI_GL_ACCOUNT | AI_PRCSSR_PTRN_FT | UPDATED_AT |
+|-------|------|--------|----------|-----------------|---------------------|-----------|---------------|-------------------|------------|
+| 12345 | BANK INTEREST CREDIT | 125.50 | USD | INCOME | 0.95 | 'INTEREST' found in text | 421025 | BANK_0649 | CURRENT_TIMESTAMP |
 
 ✅ Successfully extracted results data
 
