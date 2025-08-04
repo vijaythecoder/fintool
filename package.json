@@ -9,6 +9,7 @@
     "run-now": "node src/index.js --run-now",
     "dev": "node --watch src/index.js",
     "pattern-match": "node pattern-matcher-cli.js",
+    "pattern-match-batch": "node pattern-matcher-batch.js",
     "bigquery": "node BigQueryUtil.js",
     "test": "node --test"
   },
@@ -26,7 +27,9 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",
     "@ergut/mcp-bigquery-server": "latest",
+    "@openrouter/ai-sdk-provider": "^1.0.0-beta.6",
     "ai": "^5.0.0",
+    "commander": "^12.0.0",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "node-cron": "^3.0.3",

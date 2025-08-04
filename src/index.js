@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { config } from 'dotenv';
-import { FinancialProcessor } from './processors/financialProcessor.js';
 import { AdvancedProcessor } from './processors/advancedProcessor.js';
+import { patternMatchingJob } from './jobs/patternMatchingJob.js';
 import { logger } from './utils/logger.js';
 import { closeMCPConnection } from './services/mcpClient.js';
 import { format } from 'date-fns';
@@ -22,15 +22,10 @@ function initializeProcessor() {
     confidenceThreshold: parseFloat(process.env.CONFIDENCE_THRESHOLD || '0.85')
   };
 
-  if (processorType === 'advanced') {
-    options.concurrency = parseInt(process.env.CONCURRENCY || '3');
-    options.retryAttempts = parseInt(process.env.RETRY_ATTEMPTS || '3');
-    processor = new AdvancedProcessor(options);
-    logger.info('Initialized AdvancedProcessor with options:', options);
-  } else {
-    processor = new FinancialProcessor(options);
-    logger.info('Initialized FinancialProcessor with options:', options);
-  }
+  options.concurrency = parseInt(process.env.CONCURRENCY || '3');
+  options.retryAttempts = parseInt(process.env.RETRY_ATTEMPTS || '3');
+  processor = new AdvancedProcessor(options);
+  logger.info('Initialized AdvancedProcessor with options:', options);
 }
 
 async function runProcessing(date = null) {
@@ -44,13 +39,7 @@ async function runProcessing(date = null) {
   });
 
   try {
-    let results;
-    
-    if (processorType === 'advanced') {
-      results = await processor.processWithCustomLogic(date);
-    } else {
-      results = await processor.processFinancialData(date);
-    }
+    const results = await processor.processWithCustomLogic(date);
 
     const duration = Date.now() - startTime;
     
@@ -123,6 +112,9 @@ function handleShutdown(signal) {
     cronJob.stop();
     logger.info('Cron job stopped');
   }
+  
+  // Stop pattern matching job
+  patternMatchingJob.stop();
 
   closeMCPConnection()
     .then(() => {
@@ -185,4 +177,10 @@ if (process.argv.includes('--run-now')) {
 
   logger.info('Financial processor service started successfully');
   logger.info(`Next scheduled run: ${cronJob.nextDates(1)[0]}`);
+  
+  // Start pattern matching job if enabled
+  if (process.env.PATTERN_MATCHING_ENABLED !== 'false') {
+    patternMatchingJob.start();
+    logger.info('Pattern matching job started');
+  }
 }

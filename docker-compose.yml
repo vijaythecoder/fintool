@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      # Mount results directory for CSV outputs
+      - ./results:/app/results
+      # Mount your GCP credentials
+      - ${GCP_KEY_FILE_PATH}:/app/gcp-key.json:ro
+    environment:
+      # Override the GCP key path to use the mounted file
+      - GCP_KEY_FILE_PATH=/app/gcp-key.json
