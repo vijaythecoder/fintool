@@ -13,6 +13,8 @@ This system implements a 4-step process to identify patterns in cash transaction
 - 📊 BigQuery integration via Model Context Protocol (MCP)
 - 🎯 Automatic GL account and FT_ID determination
 - 📝 Detailed confidence scoring and reasoning
+- 💾 CSV export of results with customizable filenames
+- 📁 Organized results storage with timestamp tracking
 
 ## Prerequisites
 
@@ -69,6 +71,24 @@ Or directly:
 node pattern-matcher-cli.js
 ```
 
+#### Command Line Options
+
+- `--output, -o <filename>` - Specify a custom output filename (saved in results/ directory)
+- `--help, -h` - Show help message
+
+#### Examples
+
+```bash
+# Run with default timestamped filename
+node pattern-matcher-cli.js
+
+# Run with custom output filename
+node pattern-matcher-cli.js --output my-analysis
+
+# Show help
+node pattern-matcher-cli.js --help
+```
+
 ### How It Works
 
 The pattern matcher follows a 4-step process:
@@ -93,6 +113,11 @@ The pattern matcher follows a 4-step process:
 | bt_id | AI_SUGGEST_TEXT | AI_CONFIDENCE_SCORE | AI_REASON | AI_GL_ACCOUNT | AI_PRCSSR_PTRN_FT | UPDATED_AT |
 |-------|-----------------|---------------------|-----------|---------------|-------------------|------------|
 | 12345 | INCOME          | 0.95                | 'INTEREST' found in text | 421025 | BANK_0649 | CURRENT_TIMESTAMP |
+
+✅ Successfully extracted results data
+
+💾 Results saved to: results/pattern_matches_2025-08-04T12-30-45.csv
+   Total records: 10
 ```
 
 ## Scripts
@@ -110,6 +135,7 @@ The pattern matcher follows a 4-step process:
 │   ├── processors/          # Processing logic
 │   ├── services/            # Service integrations
 │   └── utils/               # Utility functions
+├── results/                 # CSV output directory (auto-created)
 ├── docs/                    # Documentation
 └── .env                     # Environment configuration
 ```

@@ -54,3 +54,6 @@ mcp-cache/
 # docs (temporary test files)
 /docs/chatbot-tool-usage.md
 /docs/generative-user-interfaces.md
+
+# Results directory
+results/
