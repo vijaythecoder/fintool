@@ -10,7 +10,6 @@
     "dev": "node --watch src/index.js",
     "pattern-match": "node pattern-matcher-cli.js",
     "pattern-match-batch": "node pattern-matcher-batch.js",
-    "bigquery": "node BigQueryUtil.js",
     "test": "node --test"
   },
   "keywords": [
