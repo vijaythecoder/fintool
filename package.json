@@ -9,6 +9,7 @@
     "run-now": "node src/index.js --run-now",
     "dev": "node --watch src/index.js",
     "pattern-match": "node pattern-matcher-cli.js",
+    "bigquery": "node BigQueryUtil.js",
     "test": "node --test"
   },
   "keywords": [

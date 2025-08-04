@@ -120,22 +120,55 @@ The pattern matcher follows a 4-step process:
    Total records: 10
 ```
 
+### BigQuery Utility Tool
+
+Execute any BigQuery SQL query directly from the command line:
+
+```bash
+# Basic query
+node BigQueryUtil.js "SELECT * FROM ksingamsetty-test.AI_POC.cash_transactions LIMIT 10"
+
+# Query with CSV export
+node BigQueryUtil.js "SELECT bt_id, text, pattern FROM ksingamsetty-test.AI_POC.cash_transactions WHERE pattern='T_NOTFOUND' LIMIT 20" --csv
+
+# Count query
+node BigQueryUtil.js "SELECT COUNT(*) as total FROM ksingamsetty-test.AI_POC.cash_transactions"
+
+# Complex query with joins
+node BigQueryUtil.js "SELECT t.*, p.pattern_op FROM dataset.transactions t JOIN dataset.patterns p ON t.pattern = p.pattern_code"
+```
+
+#### BigQuery Utility Options
+
+- `--csv` - Save query results to CSV file in `results/queries/` directory
+- `--help, -h` - Show help message
+
+The tool automatically:
+- Connects to BigQuery using MCP
+- Executes your exact SQL query
+- Displays results in table format
+- Optionally saves to CSV with timestamps
+- Saves the original query for reference
+
 ## Scripts
 
 - `npm start` - Run the main processor
 - `npm run pattern-match` - Run pattern matching analysis
 - `npm run dev` - Run with file watching for development
+- `node BigQueryUtil.js "<query>"` - Execute BigQuery queries directly
 
 ## Project Structure
 
 ```
 ├── pattern-matcher-cli.js    # Main pattern matching CLI tool
+├── BigQueryUtil.js          # BigQuery query execution utility
 ├── src/
 │   ├── index.js             # Main entry point
 │   ├── processors/          # Processing logic
 │   ├── services/            # Service integrations
 │   └── utils/               # Utility functions
 ├── results/                 # CSV output directory (auto-created)
+│   └── queries/             # BigQuery query results
 ├── docs/                    # Documentation
 └── .env                     # Environment configuration
 ```
