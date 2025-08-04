@@ -70,6 +70,9 @@ async function executeBigQuery(query, options = {}) {
     const { client: mcpClient } = await getBigQueryTools();
     const tools = await mcpClient.tools();
     console.log('✅ Connected to BigQuery\n');
+    
+    // Get model from environment
+    const modelName = process.env.OPENAI_MODEL || 'gpt-4.1';
 
     // System prompt for query execution
     const systemPrompt = `You are a BigQuery assistant. Execute the provided SQL query and return results.
@@ -92,7 +95,7 @@ ${options.csv ? 'Also provide the results as JSON for CSV export.' : ''}`;
 
     // Create the stream
     const result = streamText({
-      model: openai('gpt-4o-mini'),
+      model: openai(modelName),
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt }
@@ -136,7 +139,7 @@ ${options.csv ? 'Also provide the results as JSON for CSV export.' : ''}`;
     // Summary
     console.log('\n\n📈 Query Summary:');
     console.log(`- Total steps: ${finalResult.steps?.length || 0}`);
-    console.log(`- Model: gpt-4o-mini`);
+    console.log(`- Model: ${modelName}`);
     console.log('\n✨ Query completed!');
     
     // Gracefully close the MCP connection

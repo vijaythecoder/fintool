@@ -28,7 +28,7 @@ async function saveResultsToCSV(results, customFilename = null) {
     const filepath = path.join(resultsDir, filename);
     
     // CSV headers - including transaction details
-    const headers = ['bt_id', 'text', 'amount', 'currency', 'AI_SUGGEST_TEXT', 'AI_CONFIDENCE_SCORE', 'AI_REASON', 'AI_GL_ACCOUNT', 'AI_PRCSSR_PTRN_FT', 'UPDATED_AT'];
+    const headers = ['BT_ID', 'TEXT', 'TRANSACTION_AMOUNT', 'TRANSACTION_CURRENCY', 'AI_SUGGEST_TEXT', 'AI_CONFIDENCE_SCORE', 'AI_REASON', 'AI_GL_ACCOUNT', 'AI_PRCSSR_PTRN_FT', 'UPDATED_AT'];
     
     // Create CSV content
     let csvContent = headers.join(',') + '\n';
@@ -67,22 +67,36 @@ async function processPatternMatching(customFilename = null) {
     const tools = await mcpClient.tools();
     console.log('✅ Connected to BigQuery\n');
 
-    // Get dataset from environment
+    // Get dataset and model from environment
     const dataset = process.env.CASH_CLEARING_DATASET || 'ksingamsetty-test.AI_POC';
-    console.log(`📋 Dataset: ${dataset}\n`);
+    const modelName = process.env.OPENAI_MODEL || 'gpt-4.1';
+    console.log(`📋 Dataset: ${dataset}`);
+    console.log(`🤖 Model: ${modelName}\n`);
 
     // System prompt for 4-step pattern matching process
     const systemPrompt = `You are an expert at analyzing cash transactions and identifying patterns using a 4-step process.
 
 CRITICAL INSTRUCTION: You MUST complete ALL 4 steps and provide a final results table. Do not stop after executing queries - you must analyze the data and provide pattern matching results.
 
+IMPORTANT: For the AI_REASON field, you must provide DETAILED explanations that include:
+1. Which specific rule was applied (Rule 1, Rule 2, etc.)
+2. The exact keyword that was found
+3. The position or context where it was found
+4. What this pattern indicates about the transaction type
+
+Example of good AI_REASON:
+"Applied Rule 1 (INCOME): Found keyword 'INTEREST' at position 25 in transaction text. This indicates interest income from bank deposits or investments."
+
+Example of bad AI_REASON:
+"'INTEREST' found in TEXT"
+
 Your task follows this exact workflow:
 
 Step 1: Query unmatched transactions
 - Get transactions from cash_transactions table where pattern='T_NOTFOUND'
-- Select: bt_id, customer_account_number, type_code, text, amount, currency
-- bt_id is the primary key and must be carried through all steps
-- amount and currency must be included in final results
+- Select: BT_ID, CUSTOMER_ACCOUNT_NUMBER, TYPE_CODE, TEXT, TRANSACTION_AMOUNT, TRANSACTION_CURRENCY
+- BT_ID is the primary key and must be carried through all steps
+- TRANSACTION_AMOUNT and TRANSACTION_CURRENCY must be included in final results
 
 Step 2: Pattern matching
 - Query cash_processor_patterns table
@@ -97,16 +111,16 @@ Step 3: GL Account determination
 Step 4: MANDATORY - Create final results table AND JSON output
 - Analyze each transaction and match patterns
 - Create a complete table with ALL 10 transactions
-- Include: bt_id, text, amount, currency, AI_SUGGEST_TEXT, AI_CONFIDENCE_SCORE, AI_REASON, AI_GL_ACCOUNT, AI_PRCSSR_PTRN_FT, UPDATED_AT
+- Include: BT_ID, TEXT, TRANSACTION_AMOUNT, TRANSACTION_CURRENCY, AI_SUGGEST_TEXT, AI_CONFIDENCE_SCORE, AI_REASON, AI_GL_ACCOUNT, AI_PRCSSR_PTRN_FT, UPDATED_AT
 - ALSO provide the results as JSON after the table in this exact format:
 \`\`\`json
 {
   "results": [
     {
-      "bt_id": "value",
-      "text": "transaction text",
-      "amount": "numeric value",
-      "currency": "currency code",
+      "BT_ID": "value",
+      "TEXT": "transaction text",
+      "TRANSACTION_AMOUNT": "numeric value",
+      "TRANSACTION_CURRENCY": "currency code",
       "AI_SUGGEST_TEXT": "value",
       "AI_CONFIDENCE_SCORE": "value",
       "AI_REASON": "value",
@@ -119,19 +133,20 @@ Step 4: MANDATORY - Create final results table AND JSON output
 \`\`\`
 
 Pattern matching rules:
-- "INTEREST" or "INT" in text → INCOME pattern
-- "MASTERCARD", "VISA" in text → SETTLEMENT pattern  
-- "PAYPAL" in text → SETTLEMENT pattern
-- "MISCELLANEOUS" in text → SETTLEMENT pattern
+- Rule 1 (INCOME): If TEXT contains "INTEREST" or "INT" or "CR.INT" → pattern_op = "INCOME"
+- Rule 2 (CARD_SETTLEMENT): If TEXT contains "MASTERCARD" or "VISA" → pattern_op = "SETTLEMENT"
+- Rule 3 (PAYPAL_SETTLEMENT): If TEXT contains "PAYPAL" → pattern_op = "SETTLEMENT"
+- Rule 4 (MISC_SETTLEMENT): If TEXT contains "MISCELLANEOUS" → pattern_op = "SETTLEMENT"
+- Rule 5 (NO_MATCH): If none of the above patterns match → pattern_op = "UNKNOWN"
 
 DO NOT end without showing BOTH the complete final results table AND the JSON output.`;
 
     const userPrompt = `Execute the 4-step cash transaction pattern matching process:
 
 Step 1: Get 10 transactions
-SELECT bt_id, customer_account_number, type_code, text, amount, currency 
+SELECT BT_ID, CUSTOMER_ACCOUNT_NUMBER, TYPE_CODE, TEXT, TRANSACTION_AMOUNT, TRANSACTION_CURRENCY 
 FROM ${dataset}.cash_transactions 
-WHERE pattern = 'T_NOTFOUND' 
+WHERE PATTERN = 'T_NOTFOUND' 
 LIMIT 10
 
 Step 2: Get common patterns for matching
@@ -149,22 +164,29 @@ For each transaction from Step 1:
 Step 4: FINAL RESULTS TABLE (YOU MUST COMPLETE THIS STEP)
 After analyzing all transactions, create and display a complete results table with these columns:
 
-| bt_id | text | amount | currency | AI_SUGGEST_TEXT | AI_CONFIDENCE_SCORE | AI_REASON | AI_GL_ACCOUNT | AI_PRCSSR_PTRN_FT | UPDATED_AT |
+| BT_ID | TEXT | TRANSACTION_AMOUNT | TRANSACTION_CURRENCY | AI_SUGGEST_TEXT | AI_CONFIDENCE_SCORE | AI_REASON | AI_GL_ACCOUNT | AI_PRCSSR_PTRN_FT | UPDATED_AT |
 
 For EACH of the 10 transactions:
-1. Match the transaction text against pattern_search values
-2. If "INTEREST" or "INT" found → pattern_op = "INCOME"
-3. If "MASTERCARD" or "VISA" found → pattern_op = "SETTLEMENT"
-4. If "PAYPAL" found → pattern_op = "SETTLEMENT"
-5. If "MISCELLANEOUS" found → pattern_op = "SETTLEMENT"
-6. Assign confidence score based on match quality
-7. Get GL_ACCOUNT and FT_ID for that pattern_op from GL patterns
+1. Analyze the TEXT column to identify which pattern rule applies
+2. Apply pattern matching rules:
+   - Rule 1 (INCOME): Check for "INTEREST", "INT", or "CR.INT" keywords
+   - Rule 2 (CARD_SETTLEMENT): Check for "MASTERCARD" or "VISA" keywords  
+   - Rule 3 (PAYPAL_SETTLEMENT): Check for "PAYPAL" keyword
+   - Rule 4 (MISC_SETTLEMENT): Check for "MISCELLANEOUS" keyword
+   - Rule 5 (NO_MATCH): If no keywords found
+3. For AI_REASON, provide detailed explanation in this format:
+   "Applied Rule X (RULE_NAME): Found keyword 'SPECIFIC_KEYWORD' at position Y in transaction text. This indicates [explanation of what this pattern represents]"
+4. Assign confidence score:
+   - 0.99 for exact keyword match
+   - 0.95-0.98 for partial/case-insensitive match
+   - 0.10 for no match
+5. Get GL_ACCOUNT and FT_ID based on the matched pattern_op
 
 YOU MUST show the complete final table with all 10 rows filled in AND provide the JSON output as specified above. Do not stop without showing BOTH the table and JSON.`;
 
     // Create the stream
     const result = streamText({
-      model: openai('gpt-4o-mini'),
+      model: openai(modelName),
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt }
@@ -218,7 +240,7 @@ YOU MUST show the complete final table with all 10 rows filled in AND provide th
     }
     
     console.log(`- Total tool calls: ${toolCallCount}`);
-    console.log(`- Model: gpt-4o-mini`);
+    console.log(`- Model: ${modelName}`);
     console.log('\n✨ Pattern matching completed!');
     
     // Gracefully close the MCP connection

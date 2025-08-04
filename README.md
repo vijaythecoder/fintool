@@ -9,7 +9,7 @@ This system implements a 4-step process to identify patterns in cash transaction
 ## Features
 
 - 🔍 Pattern matching for unmatched cash transactions
-- 🤖 AI-powered transaction analysis using OpenAI GPT-4o-mini
+- 🤖 AI-powered transaction analysis using configurable OpenAI models
 - 📊 BigQuery integration via Model Context Protocol (MCP)
 - 🎯 Automatic GL account and FT_ID determination
 - 📝 Detailed confidence scoring and reasoning
@@ -53,6 +53,7 @@ CASH_CLEARING_DATASET=your-dataset-name
 
 # OpenAI Configuration
 OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4.1  # Options: gpt-4.1, gpt-4.1-mini, gpt-4o, gpt-4o-mini, gpt-4-turbo
 ```
 
 ## Usage
@@ -107,6 +108,7 @@ The pattern matcher follows a 4-step process:
 ✅ Connected to BigQuery
 
 📋 Dataset: ksingamsetty-test.AI_POC
+🤖 Model: gpt-4.1
 
 🔄 Processing transactions...
 
