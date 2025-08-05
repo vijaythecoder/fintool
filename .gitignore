@@ -57,3 +57,4 @@ mcp-cache/
 
 # Results directory
 results/
+*.tar.gz

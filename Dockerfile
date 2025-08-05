@@ -16,5 +16,5 @@ COPY . .
 # Create results directory for output
 RUN mkdir -p results logs
 
-# Run the pattern matcher CLI by default
-CMD ["node", "pattern-matcher-cli.js"]
+# Run the pattern matcher batch processor by default
+CMD ["node", "pattern-matcher-batch.js", "--batch-size", "5", "--concurrency", "5", "--limit", "100"]

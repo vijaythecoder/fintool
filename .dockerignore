@@ -30,8 +30,8 @@ test-*.js
 
 # Documentation
 docs/
-README.md
 *.md
+!README.md
 
 # Build files
 .DS_Store
@@ -42,10 +42,20 @@ results/
 *.csv
 
 # GCP credentials (will be mounted as volume)
-*.json
-!package*.json
+gcp.json
+service-account*.json
+credentials/
 
 # Temporary files
 temp/
 tmp/
 .cache/
+
+# Docker files (don't include in image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Other environment files
+.env.*
+!.env.example

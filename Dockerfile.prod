@@ -1,0 +1,53 @@
+# Production Dockerfile with embedded application code
+FROM node:20-alpine
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create app directory
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Copy application code
+COPY --chown=nodejs:nodejs . .
+
+# Copy and set permissions for entrypoint
+COPY --chown=nodejs:nodejs docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Remove unnecessary files
+RUN rm -rf .git .gitignore .env .env.* *.md docs/ tests/ .github/ gcp.json docker-entrypoint.sh
+
+# Create necessary directories with proper permissions
+RUN mkdir -p results logs && \
+    chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Environment variables with defaults
+ENV NODE_ENV=production \
+    LOG_LEVEL=info \
+    LOG_DIR=/app/logs \
+    PATTERN_OUTPUT_DIR=/app/results \
+    GCP_KEY_FILE_PATH=/app/gcp-key.json
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "console.log('OK')" || exit 1
+
+# Use dumb-init to handle signals properly with our entrypoint
+ENTRYPOINT ["dumb-init", "--", "docker-entrypoint.sh"]
+
+# Default command - run batch mode with specified parameters
+CMD ["batch", "--batch-size", "5", "--concurrency", "5", "--limit", "100"]

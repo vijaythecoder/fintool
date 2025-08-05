@@ -1,0 +1,20 @@
+# Local development overrides for docker-compose
+# This file is automatically loaded by docker-compose and allows you to override settings
+# without modifying the main docker-compose.yml file
+
+version: '3'
+
+services:
+  app:
+    # For local development, you can override the command if needed
+    # command: ["node", "pattern-matcher-cli.js", "--help"]
+    
+    # Additional environment variables for local development
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    
+    # If you need to mount additional volumes for development
+    # volumes:
+    #   - ./src:/app/src
+    #   - ./package.json:/app/package.json

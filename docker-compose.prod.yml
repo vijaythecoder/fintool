@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  fintool:
+    # Use pre-built image instead of building
+    image: fintool:latest
+    
+    # Environment file for configuration
+    env_file:
+      - .env
+    
+    # Mount only what's necessary
+    volumes:
+      # Mount GCP credentials (required)
+      - ${GCP_KEY_FILE_PATH:-./gcp.json}:/app/gcp-key.json:ro
+      
+      # Mount results directory for output
+      - ./results:/app/results
+      
+      # Mount logs directory (optional)
+      - ./logs:/app/logs
+    
+    # Override environment variables if needed
+    environment:
+      # Ensure GCP key path points to mounted location
+      - GCP_KEY_FILE_PATH=/app/gcp-key.json
+      
+      # Set production environment
+      - NODE_ENV=production
+      
+      # Ensure these paths are correct inside container
+      - PATTERN_OUTPUT_DIR=/app/results
+      - LOG_DIR=/app/logs
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
